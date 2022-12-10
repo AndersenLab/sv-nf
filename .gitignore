@@ -11,6 +11,6 @@ work/*
 
 # user
 .DS_Store
-projects*
-out*
-temp_files*
+projects/*
+out/*
+temp_files/*
