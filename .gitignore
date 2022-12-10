@@ -8,9 +8,9 @@
 *.nextflow
 report.*
 work/*
-#debug/20220501_dauerDebug/Analysis*
-#debug/20220501_toxinDebug/Analysis*
 
 # user
 .DS_Store
 projects*
+out*
+temp_files*
