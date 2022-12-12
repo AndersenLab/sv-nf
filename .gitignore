@@ -12,5 +12,6 @@ work/*
 # user
 .DS_Store
 projects/*
+SV_results*
 out/*
 temp_files/*

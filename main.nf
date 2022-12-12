@@ -17,8 +17,16 @@ if( !nextflow.version.matches('>20.0') ) {
 // Variables
 date = new Date().format('yyyyMMdd')
 
-// Setup pipeline parameter
-
+// Setup pipeline parameters
+params.release = null
+params.sp_sheet = null
+params.bam_dir = "/projects/b1059/data/c_elegans/WI/alignments" // path to directory holding .bam files
+params.ref = "/projects/b1059/data/c_elegans/genomes/PRJNA13758/WS283/c_elegans.PRJNA13758.WS283.genome.fa" // WE should compress this at some point
+params.out = "SV_results_${date}"
+params.help = null
+params.debug = false // T sets CeaNDR release code to 11111111 for debug NEED TO IMPLEMENT!
+params.bin_dir = "${workflow.projectDir}/bin" // this is different for gcp?
+params.rlib = "/projects/b1059/software/R_lib_3.6.0" // default to QUEST andersen lab 
 
 /*
 ~ ~ ~ > * LOG AND HELP MESSAGE SETUP
@@ -26,32 +34,39 @@ date = new Date().format('yyyyMMdd')
 
 if (!params.help) {
 log.info '''
-SV - N F   P I P E L I N E
+S V - N F    P I P E L I N E
 ===============================================
 '''
     log.info ""
-    log.info "Project           = ${params.project}"
-    log.info "CP pipeline       = ${params.pipeline}"
-    log.info "Groups            = ${params.groups}"
-    log.info "Output            = ${params.out}"
+    log.info "CaeNDR Release           = ${params.release}"
+    log.info "Sample Sheet             = ${params.sp_sheet}"
+    log.info ".bam Directory           = ${params.bam_dir}"
+    log.info "Reference File           = ${params.ref}"
+    log.info "Output Directory         = ${params.out}"
+    log.info "Debug                    = ${params.debug}"
     log.info ""
     } else {
 log.info '''
-SV - N F   P I P E L I N E
+S V - N F    P I P E L I N E
 ===============================================
 '''
     log.info "Usage:"
     log.info "The typical command for running the pipeline is as follows:"
-    log.info "nextflow run main.nf --pipeline <CellProfiler pipeline to use> --project <path to your project directory>"
+    log.info "nextflow run main.nf --release <latest CaeNDR release>"
     log.info ""
-    log.info "Mandatory arguments:"
-    log.info "--project                      The path to your project directory"
-    log.info "--pipeline                     The CP pipeline to use: toxin, dauer"
+    log.info "Arguments:"
+    log.info "--release     String           The 8-digit date code for CaeNDR release, e.g 20220216"
+    log.info "--sp_sheet    String           A path to the sample_sheet.txt file for calling INDELs instead of release"
+    log.info "--bam_dir     String           The path to the .bam directory, default set for QUEST"
+    log.info "--ref         String           Full path to the .fa uncompressed reference file, default set for QUEST"
+    log.info "--out         String           The output directory, default is SV_indel_results_<date>"
+    log.info "--debug       boolean          Run the debug or not, default is FALSE"
+    log.info "--rlib        String           A path to an R v3.6.0 library with required R packages installed, default is /projects/b1059/software/R_lib_3.6.0"
     log.info ""
-    log.info "Optional arguments:"
-    log.info "--groups                       comma separated metadata groupings for CellProfiler, default is plate,well"
-    log.info "--outdir                       Output directory to place files, default is project/Analysis-{current date}"
-    log.info "--help                         This usage statement."
+    log.info "Flags:"
+    log.info "--help                                      Display this message"
+    log.info ""
+    log.info "--------------------------------------------------------"
         exit 1
     }
 
@@ -60,187 +75,191 @@ SV - N F   P I P E L I N E
 */
 
 workflow {
-    \\ add stuff here
-}
 
-/*
-~ ~ ~ > * CONFIGURE FILES FOR CELLPROFILER
-*/
+    // Choose how we get isotype reference strains
+    if(params.release){
 
-process config_CP_input_dauer {
-    publishDir "${params.out}/pipeline", mode: 'copy', pattern: "*.cppipe"
-    publishDir "${params.out}/metadata", mode: 'copy', pattern: "metadata.csv"
-    publishDir "${params.out}/groups", mode: 'copy', pattern: "groups.tsv"
+        delly_in = Channel.fromPath("${params.bin_dir}/config_delly.R")
+            .combine(Channel.from("${params.release}")) // get strain names from WI sheets
+            .combine(Channel.from("${params.bam_dir}"))
+            .combine(Channel.from("${params.ref}")) 
+            //.view()
+    } else {
+        delly_in = Channel.fromPath("${params.bin_dir}/config_delly.R")
+            .combine(Channel.from("${params.sp_sheet}")) // take strain names from sample sheet
+            .combine(Channel.from("${params.bam_dir}"))
+            .combine(Channel.from("${params.ref}"))
+            //.view()
+    }
 
-    input:
-        tuple file(raw_pipe), val(meta_dir), val(meta), val(model_dir), val(model1), val(model2),
-        file(config_script), val(project), val(mask), val(group), val(edited_pipe), val(out)
+    // make the delly run parameters
+    config_delly(delly_in)
 
-    output:
-        path "*.cppipe", emit: cp_pipeline_file
-        path "metadata.csv", emit: metadata_file
-        path "groups.tsv", emit: groups_file
-        
+    // setup the channel to run delly
+    delly_pif_ch = config_delly.out.delly_par_file
+        .splitCsv(header:true, sep: "\t")
+            .map { row -> [row.isotype, file("${row.bam}"), file("${row.index}"), file("${row.ref}")] }
+            //.view()
 
-    """
-        # Configure the raw pipeline for CellProfiler
-        awk '{gsub(/METADATA_DIR/,"${meta_dir}"); print}' ${raw_pipe} | \\
-        awk '{gsub(/METADATA_CSV_FILE/,"${meta}"); print}' | \\
-        awk '{gsub(/WORM_MODEL_DIR/,"${model_dir}"); print}' | \\
-        awk '{gsub(/MODEL1_XML_FILE/,"${model1}"); print}' | \\
-        awk '{gsub(/MODEL2_XML_FILE/,"${model2}"); print}' > pipeline.cppipe
+    // run delly for pairwise-indel finder (pif)
+    delly_pif(delly_pif_ch)
 
-        # Configure metadata and groups for CellProfiller with config_CP_input.R
-        Rscript --vanilla ${config_script} ${project} ${mask} ${group} ${edited_pipe} ${out}
-
-    """
-}
-
-process config_CP_input_toxin {
-    publishDir "${params.out}/pipeline", mode: 'copy', pattern: "*.cppipe"
-    publishDir "${params.out}/metadata", mode: 'copy', pattern: "metadata.csv"
-    publishDir "${params.out}/groups", mode: 'copy', pattern: "groups.tsv"
-
-    input:
-        tuple file(raw_pipe), val(meta_dir), val(meta), val(model_dir), val(model1), val(model2), val(model3), val(model4),
-        file(config_script), val(project), val(mask), val(group), val(edited_pipe), val(out)
-
-    output:
-        path "*.cppipe", emit: cp_pipeline_file
-        path "metadata.csv", emit: metadata_file
-        path "groups.tsv", emit: groups_file
-        
-
-    """
-        # Configure the raw pipeline for CellProfiler
-        awk '{gsub(/METADATA_DIR/,"${meta_dir}"); print}' ${raw_pipe} | \\
-        awk '{gsub(/METADATA_CSV_FILE/,"${meta}"); print}' | \\
-        awk '{gsub(/WORM_MODEL_DIR/,"${model_dir}"); print}' | \\
-        awk '{gsub(/MODEL1_XML_FILE/,"${model1}"); print}' | \\
-        awk '{gsub(/MODEL2_XML_FILE/,"${model2}"); print}' | \\
-        awk '{gsub(/MODEL3_XML_FILE/,"${model3}"); print}' | \\
-        awk '{gsub(/MODEL4_XML_FILE/,"${model4}"); print}' > pipeline.cppipe
-
-        # Configure metadata and groups for CellProfiller with config_CP_input.R
-        Rscript --vanilla ${config_script} ${project} ${mask} ${group} ${edited_pipe} ${out}
-
-    """
-}
-
-/*
-~ ~ ~ > * RUN CELLPROFILER
-*/
-
-process runCP {
-
-    label "cellpro"
-
-    input:
-        tuple val(group), file(pipeline), file(output)
-
-    output:
-        stdout emit: cp_output //tuple file("*.csv"), file("*.png"), emit: cp_output
-
-    """
-        # Run cellprofiler headless
-        cellprofiler -c -r -p ${pipeline} \
-        -g ${group} \
-        -o ${output}
-
-    """
-}
-
-/*
-~ ~ ~ > * PROCESS CELLPROFILER OUTPUTS
-*/
-
-process proc_CP_output_dauer {
-
-    //publishDir "${params.out}/processed_data", mode: 'copy', pattern: "*.RData"
+    // send output to merge
+    merge_delly_pif_ch = delly_pif.out.collect()
+                    //.view()
     
-    input:
-        tuple val(cp_output), val(out_dir), val(model_name1), val(model_name2), file(proc_CP_out_script)
+    // run merge
+    merge_delly_pif(merge_delly_pif_ch)
 
-    output:
-        //path "*.RData", emit: cp_out_dat
+    // send output to be genotyped
+    geno_sites_ch = delly_pif_ch.combine(merge_delly_pif.out)
+                    //.view()
 
-    """
-        # remove exisitng directories if present and make fresh
-        if [ -d ${out_dir}/processed_data ]; then rm -Rf ${out_dir}/processed_data; fi
-        mkdir ${out_dir}/processed_data
+    // run genotype_sites
+    genotype_sites(geno_sites_ch)
 
-        if [ -d ${out_dir}/processed_images ]; then rm -Rf ${out_dir}/processed_images; fi
-        mkdir ${out_dir}/processed_images
+    // send output to proccess delly channel
+    proc_genos_ch = genotype_sites.out.delly_genos.collect() | proc_genos
+                    //.view()
 
-        # find .csv files, concatenate them, and write new file
-        awk 'FNR==1 && NR!=1 { while (/^ImageNumber/) getline; } 1 {print}' ${out_dir}/CP_output/*/${model_name1}.csv > ${out_dir}/processed_data/${model_name1}.csv
-        awk 'FNR==1 && NR!=1 { while (/^ImageNumber/) getline; } 1 {print}' ${out_dir}/CP_output/*/${model_name2}.csv > ${out_dir}/processed_data/${model_name2}.csv
-        
-        # move all the output images to process_images directory
-        mv ${out_dir}/CP_output/**/*.png ${out_dir}/processed_images
+    // setup ceandr_pif script and inputs as a channel
+    ceandr_pif_ch = Channel.fromPath("${params.bin_dir}/bed_to_VCF.R")
+        .combine(proc_genos.out.raw_ceandr_bed)
+        .combine(Channel.fromPath("${params.ref}"))
+        .combine(Channel.from("${params.rlib}"))
 
-        # Process the CellProfiler output with proc_CP_output.R
-        Rscript --vanilla ${proc_CP_out_script} ${out_dir}
-
-    """
+    // run it
+    output_caendr_pif(ceandr_pif_ch)
 }
 
-process proc_CP_output_toxin {
-
-    //publishDir "${params.out}/processed_data", mode: 'copy', pattern: "*.RData"
+process config_delly {
     
+    label "R"
+
     input:
-        tuple val(cp_output), val(out_dir), val(model_name1), val(model_name2),
-        val(model_name3), val(model_name4), file(proc_CP_out_script)
+        tuple file(config_script), val(samples), val(bams_path), val(ref_path) 
 
     output:
-        //path "*.RData", emit: cp_out_dat
+        path "sample_file.txt", emit: sample_file
+        path "delly_config_file.tsv", emit: delly_par_file
+
 
     """
-        # remove exisitng directories if present and make fresh
-        if [ -d ${out_dir}/processed_data ]; then rm -Rf ${out_dir}/processed_data; fi
-        mkdir ${out_dir}/processed_data
-
-        if [ -d ${out_dir}/processed_images ]; then rm -Rf ${out_dir}/processed_images; fi
-        mkdir ${out_dir}/processed_images
-
-        # find .csv files, concatenate them, and write new file
-        awk 'FNR==1 && NR!=1 { while (/^ImageNumber/) getline; } 1 {print}' ${out_dir}/CP_output/*/${model_name1}.csv > ${out_dir}/processed_data/${model_name1}.csv
-        awk 'FNR==1 && NR!=1 { while (/^ImageNumber/) getline; } 1 {print}' ${out_dir}/CP_output/*/${model_name2}.csv > ${out_dir}/processed_data/${model_name2}.csv
-        awk 'FNR==1 && NR!=1 { while (/^ImageNumber/) getline; } 1 {print}' ${out_dir}/CP_output/*/${model_name3}.csv > ${out_dir}/processed_data/${model_name3}.csv
-        awk 'FNR==1 && NR!=1 { while (/^ImageNumber/) getline; } 1 {print}' ${out_dir}/CP_output/*/${model_name4}.csv > ${out_dir}/processed_data/${model_name4}.csv
-        
-        # move all the output images to process_images directory
-        mv ${out_dir}/CP_output/**/*.png ${out_dir}/processed_images
-
-        # Process the CellProfiler output with proc_CP_output.R
-        Rscript --vanilla ${proc_CP_out_script} ${out_dir}
+        # Use config script to setup delly run parameters
+        Rscript --vanilla ${config_script} ${samples} ${bams_path} ${ref_path}
 
     """
 }
 
-/*
-~ ~ ~ > * GENERATE REPORT
-*/
-workflow.onComplete {
+process delly_pif {
+    
+    label "dell_big"
 
-    summary = """
-    Pipeline execution summary
-    ---------------------------
-    Completed at: ${workflow.complete}
-    Duration    : ${workflow.duration}
-    Success     : ${workflow.success}
-    workDir     : ${workflow.workDir}
-    exit status : ${workflow.exitStatus}
-    Error report: ${workflow.errorReport ?: '-'}
-    Git info: $workflow.repository - $workflow.revision [$workflow.commitId]
-    { Parameters }
-    ---------------------------
-    Project                                 = ${params.project}
-    Pipeline Used                           = ${params.pipeline}
-    Result Directory                        = ${params.out}
+    input:
+        tuple val(isotype), file(bam), file(index), file(ref)
+
+    output:
+        file "*.bcf"
+
+
+    """
+        delly call -t DEL ${bam} -g ${ref} -o ${isotype}_del.bcf
+        delly call -t INS ${bam} -g ${ref} -o ${isotype}_ins.bcf
+        
+    """
+}
+
+process merge_delly_pif {
+    
+    label "dell_big"
+
+    input:
+        path("*")
+
+    output:
+        file "*.bcf" 
+
+    """
+        vcf_list=`echo *.bcf`
+        delly merge \${vcf_list} --minsize 50 --maxsize 500 -b 500 -r 0.5 -o WI.merge.sites.bcf
     """
 
-    println summary
+}
+
+process genotype_sites {
+
+    label "dell_big"
+        
+    input:
+        tuple val(isotype), file(bam), file(index), file(ref), file(merged_bcf)
+
+    output:
+        tuple file("${isotype}_geno.bcf"), file("${isotype}_geno.bcf.csi"), emit: delly_genos
+
+    """
+        delly call ${bam} -v ${merged_bcf} -g ${ref} -o ${isotype}_geno.bcf
+        bcftools index -f ${isotype}_geno.bcf
+    """
+
+}
+
+process proc_genos {
+
+    label "dell_big"
+        
+    publishDir "${params.out}/variation", mode: 'copy'
+
+    input:
+        path("*")
+
+    output:
+        tuple file("WI.DELLYpif.germline-filter.vcf.gz"), file("WI.DELLYpif.germline-filter.vcf.gz.tbi"), emit: delly_germline_filtered
+        tuple file("WI.DELLYpif.germline.bed"), emit: raw_ceandr_bed
+        tuple file("WI.DELLYpif.raw.vcf.gz"), file("WI.DELLYpif.raw.vcf.gz.tbi"), file("WI.DELLYpif.raw.stats.txt"), file("WI.DELLYpif.germline-filter.stats.txt")
+
+    script:
+        """
+            ls *.bcf > bcf_list.txt
+
+            bcftools merge -m id -Ob -o WI.DELLYpif.raw.bcf -l bcf_list.txt
+            bcftools index -f WI.DELLYpif.raw.bcf
+
+            bcftools query -l WI.DELLYpif.raw.bcf | sort > sample_names.txt
+
+            bcftools view --samples-file=sample_names.txt -Oz -o WI.DELLYpif.raw.vcf.gz WI.DELLYpif.raw.bcf
+            tabix -p vcf -f WI.DELLYpif.raw.vcf.gz
+
+            delly filter -f germline WI.DELLYpif.raw.bcf -o WI.DELLYpif.germline-filter.bcf
+            bcftools view -Oz -o WI.DELLYpif.germline-filter.vcf.gz WI.DELLYpif.germline-filter.bcf
+            tabix -p vcf -f WI.DELLYpif.germline-filter.vcf.gz
+
+            bcftools view --samples-file=sample_names.txt -Oz -o WI.DELLYpif.germline-filter.vcf.gz WI.DELLYpif.germline-filter.bcf
+            tabix -p vcf -f WI.DELLYpif.germline-filter.vcf.gz
+
+            bcftools query WI.DELLYpif.germline-filter.vcf.gz -f '[%CHROM\\t%POS\\t%INFO/END\\t%INFO/SVTYPE\\t%SAMPLE\\t%GT\\n]' |\\
+            awk -F"|" '{print \$1, \$2, \$3, \$4, \$5}' OFS="\\t" > WI.DELLYpif.germline.bed
+
+            bcftools stats --verbose WI.DELLYpif.raw.vcf.gz > WI.DELLYpif.raw.stats.txt
+            bcftools stats --verbose WI.DELLYpif.germline-filter.vcf.gz > WI.DELLYpif.germline-filter.stats.txt     
+        """
+
+}
+
+process output_caendr_pif {
+
+    publishDir "${params.out}/caendr_pif", mode: 'copy'
+
+    label "R"
+        
+    input:
+        tuple file(caendr_pif_script), file(bed), file(ref), path(rlib_path)
+
+    output:
+        tuple file("caendr.pif.bed.gz"), file("caendr.pif.bed.gz.tbi"), file("caendr.pif.vcf.gz"), file("caendr.pif.vcf.gz.csi"), emit: ceandr_pif
+
+    """
+        # Use config script to setup delly run parameters
+        Rscript --vanilla ${caendr_pif_script} ${bed} ${ref} ${rlib_path}
+    """
 
 }
