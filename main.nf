@@ -82,13 +82,15 @@ workflow {
         delly_in = Channel.fromPath("${params.bin_dir}/config_delly.R")
             .combine(Channel.from("${params.release}")) // get strain names from WI sheets
             .combine(Channel.from("${params.bam_dir}"))
-            .combine(Channel.from("${params.ref}")) 
+            .combine(Channel.from("${params.ref}"))
+            .combine(Channel.from("${params.rlib}")) 
             //.view()
     } else {
         delly_in = Channel.fromPath("${params.bin_dir}/config_delly.R")
             .combine(Channel.from("${params.sp_sheet}")) // take strain names from sample sheet
             .combine(Channel.from("${params.bam_dir}"))
             .combine(Channel.from("${params.ref}"))
+            .combine(Channel.from("${params.rlib}"))
             //.view()
     }
 
@@ -137,7 +139,7 @@ process config_delly {
     label "R"
 
     input:
-        tuple file(config_script), val(samples), val(bams_path), val(ref_path) 
+        tuple file(config_script), val(samples), val(bams_path), val(ref_path), path(rlib_path)
 
     output:
         path "sample_file.txt", emit: sample_file
@@ -146,7 +148,7 @@ process config_delly {
 
     """
         # Use config script to setup delly run parameters
-        Rscript --vanilla ${config_script} ${samples} ${bams_path} ${ref_path}
+        Rscript --vanilla ${config_script} ${samples} ${bams_path} ${ref_path} ${rlib_path}
 
     """
 }
@@ -181,7 +183,7 @@ process merge_delly_pif {
 
     """
         vcf_list=`echo *.bcf`
-        delly merge \${vcf_list} --minsize 50 --maxsize 500 -b 500 -r 0.5 -o WI.merge.sites.bcf
+        delly merge \${vcf_list} --minsize 50 --maxsize 500 -b 1000 -r 0.8000012 -o WI.merge.sites.bcf
     """
 
 }

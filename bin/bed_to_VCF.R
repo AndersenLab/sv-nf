@@ -110,4 +110,4 @@ if (err != 0) {
 }
 
 # reset the libPath - not sure if necessary
-.libPaths(.libPaths()[-2])
+.libPaths(.libPaths()[-1])
