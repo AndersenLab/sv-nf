@@ -6,7 +6,7 @@ args <- commandArgs(trailingOnly = TRUE)
 # Define arguments for testing
 # [1]: bed file from delly /projects/b1059/projects/Tim/sv-nf/temp_files/WI.DELLYpif.germline.bed
 # [2]: ref: /projects/b1059/data/c_elegans/genomes/PRJNA13758/WS283/c_elegans.PRJNA13758.WS283.genome.fa
-# [3]: path to R 3.6.0 libary
+# [3]: path to R 3.6.0 library
 # args <- c("/projects/b1059/projects/Tim/sv-nf/temp_files/WI.DELLYpif.germline.bed", "/projects/b1059/data/c_elegans/genomes/PRJNA13758/WS283/c_elegans.PRJNA13758.WS283.genome.fa", "/projects/b1059/software/R_lib_3.6.0")
 
 # set libPath to AndersenLab R3.6.0 shared library for now
