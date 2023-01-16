@@ -4,9 +4,8 @@
 
 ## Pipeline overview
 <p align="center" width="100%">
-    <img width="33%" src="https://github.com/AndersenLab/sv-nf/blob/main/img/sv-nf_workflow.png?raw=true">
+    <img width="100%" src="https://github.com/AndersenLab/sv-nf/blob/main/img/sv-nf_workflow.png?raw=true">
 </p>
-##![](img/sv-nf_workflow.png)
 
 ## QUEST usage
 
