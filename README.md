@@ -4,7 +4,7 @@
 
 ## Pipeline overview
 <p align="center" width="100%">
-    <img width="50%" src="https://github.com/AndersenLab/sv-nf/blob/main/img/sv-nf_workflow.png?raw=true">
+    <img width="60%" src="https://github.com/AndersenLab/sv-nf/blob/main/img/sv-nf_workflow.png?raw=true">
 </p>
 
 ## QUEST usage
