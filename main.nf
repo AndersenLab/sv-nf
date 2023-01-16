@@ -100,7 +100,7 @@ workflow {
     // setup the channel to run delly
     delly_pif_ch = config_delly.out.delly_par_file
         .splitCsv(header:true, sep: "\t")
-            .map { row -> [row.isotype, file("${row.bam}"), file("${row.index}"), file("${row.ref}")] }
+            .map { row -> [row.strain, file("${row.bam}"), file("${row.index}"), file("${row.ref}")] }
             //.view()
 
     // run delly for pairwise-indel finder (pif)
@@ -108,21 +108,21 @@ workflow {
 
     // send output to merge
     merge_delly_pif_ch = delly_pif.out.collect()
-                    //.view()
+        //.view()
     
     // run merge
     merge_delly_pif(merge_delly_pif_ch)
 
     // send output to be genotyped
     geno_sites_ch = delly_pif_ch.combine(merge_delly_pif.out)
-                    //.view()
+        //.view()
 
     // run genotype_sites
     genotype_sites(geno_sites_ch)
 
     // send output to proccess delly channel
     proc_genos_ch = genotype_sites.out.delly_genos.collect() | proc_genos
-                    //.view()
+        //.view()
 
     // setup ceandr_pif script and inputs as a channel
     ceandr_pif_ch = Channel.fromPath("${params.bin_dir}/bed_to_VCF.R")
@@ -158,15 +158,15 @@ process delly_pif {
     label "dell_big"
 
     input:
-        tuple val(isotype), file(bam), file(index), file(ref)
+        tuple val(strain), file(bam), file(index), file(ref)
 
     output:
         file "*.bcf"
 
 
     """
-        delly call -t DEL ${bam} -g ${ref} -o ${isotype}_del.bcf
-        delly call -t INS ${bam} -g ${ref} -o ${isotype}_ins.bcf
+        delly call -t DEL ${bam} -g ${ref} -o ${strain}_del.bcf
+        delly call -t INS ${bam} -g ${ref} -o ${strain}_ins.bcf
         
     """
 }

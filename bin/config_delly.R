@@ -34,8 +34,8 @@ if(stringr::str_detect(args[1], pattern = "sample_sheet.txt") & file.exists(args
   
   # sort samples
   samples <- data.table::fread(args[1], header = F) %>%
-    dplyr::rename(isotype = V1) %>%
-    dplyr::arrange(isotype)
+    dplyr::rename(strain = V1) %>%
+    dplyr::arrange(strain)
 }
 
 # detect release code
@@ -46,18 +46,17 @@ if(stringr::str_detect(args[1], pattern = "[0-9]{8}$")){
   
   # get the species sheet
   samples <- gsheet::gsheet2tbl(url = "https://docs.google.com/spreadsheets/d/10x-CcKNCl80F9hMcrGWC4fhP_cbekSzi5_IYBY2UqCc") %>%
-    dplyr::filter(release <= as.numeric(args[1])) %>%
-    dplyr::filter(strain == isotype) %>%
-    dplyr::arrange(isotype) %>%
-    dplyr::select(isotype)
+    dplyr::filter(release <= as.numeric(args[1]) & isotype_ref_strain == T) %>%
+    dplyr::arrange(strain) %>%
+    dplyr::select(strain)
 }
 
 #==============================================================================#
 # make the config file for delly                                               #
 #==============================================================================#
 config <- samples %>%
-  dplyr::mutate(bam = paste0(args[2], "/", isotype, ".bam"),
-                index = paste0(args[2], "/",  isotype, ".bam.bai"),
+  dplyr::mutate(bam = paste0(args[2], "/", strain, ".bam"),
+                index = paste0(args[2], "/",  strain, ".bam.bai"),
                 ref = paste0(args[3]))
 
 # write the config file
