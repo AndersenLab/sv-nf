@@ -3,8 +3,10 @@
 *A nextflow pipeline to call structural variants in Caenorhabditis nematodes from .bam files*
 
 ## Pipeline overview
-
-![](img/sv-nf_workflow.png)
+<p align="center" width="100%">
+    <img width="33%" src="https://github.com/AndersenLab/sv-nf/blob/main/img/sv-nf_workflow.png?raw=true">
+</p>
+##![](img/sv-nf_workflow.png)
 
 ## QUEST usage
 
