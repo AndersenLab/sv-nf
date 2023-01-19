@@ -7,13 +7,9 @@ args <- commandArgs(trailingOnly = TRUE)
 # [1]: where we get the isotype reference strains from sample_sheet.txt or CaeNDR release code, e.g. 20220216
 # [2]: directory path for .bam and index files, default is "/projects/b1059/data/c_elegans/WI/alignments"
 # [3]: path for the reference, default is "/projects/b1059/data/c_elegans/genomes/PRJNA13758/WS283/c_elegans.PRJNA13758.WS283.genome.fa"
-# [4]: path to R 3.6.0 libary
 # args <- c("/projects/b1059/projects/Tim/sv-nf/temp_files/sample_sheet.txt",
 #          "/projects/b1059/data/c_elegans/WI/alignments",
 #          "/projects/b1059/data/c_elegans/genomes/PRJNA13758/WS283/c_elegans.PRJNA13758.WS283.genome.fa")
-
-# set libPath to AndersenLab R3.6.0 shared library for now
-.libPaths(c(args[4], .libPaths() ))
 
 library(magrittr)
 #==============================================================================#
@@ -64,6 +60,3 @@ write.table(config, file = "delly_config_file.tsv", quote=FALSE, sep='\t', row.n
 
 # write the sorted sample file
 write.table(samples, file = "sample_file.txt", quote=FALSE, sep='\t', row.names = F)
-
-# reset the libPath - not sure if necessary
-.libPaths(.libPaths()[-1])

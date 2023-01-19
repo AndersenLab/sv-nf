@@ -6,17 +6,12 @@ args <- commandArgs(trailingOnly = TRUE)
 # Define arguments for testing
 # [1]: bed file from delly /projects/b1059/projects/Tim/sv-nf/temp_files/WI.DELLYpif.germline.bed
 # [2]: ref: /projects/b1059/data/c_elegans/genomes/PRJNA13758/WS283/c_elegans.PRJNA13758.WS283.genome.fa
-# [3]: path to R 3.6.0 library
-# args <- c("/projects/b1059/projects/Tim/sv-nf/temp_files/WI.DELLYpif.germline.bed", "/projects/b1059/data/c_elegans/genomes/PRJNA13758/WS283/c_elegans.PRJNA13758.WS283.genome.fa", "/projects/b1059/software/R_lib_3.6.0")
-
-# set libPath to AndersenLab R3.6.0 shared library for now
-.libPaths(c(args[3], .libPaths() ))
+# args <- c("/projects/b1059/projects/Tim/sv-nf/temp_files/WI.DELLYpif.germline.bed", "/projects/b1059/data/c_elegans/genomes/PRJNA13758/WS283/c_elegans.PRJNA13758.WS283.genome.fa")
 
 # load packages
 library(data.table)
 library(Rsamtools)
 library(magrittr)
-
 
 # read in DELLY germline bed file
 df <- data.table::fread(args[1]) %>%
@@ -77,8 +72,6 @@ vcf[, START := NULL]
 vcf[, END := NULL]
 vcf[, sequence := NULL]
 
-
-
 setcolorder(vcf, c("CHROM",
                    "POS",
                    "ID",
@@ -90,7 +83,6 @@ setcolorder(vcf, c("CHROM",
                    "FORMAT",
                    STRAIN_ORDER))
 setnames(vcf, "CHROM", "#CHROM")
-
 
 # Fix Genotypes; Set NA to 0/0; Infer reference
 vcf[, (STRAIN_ORDER) := lapply(.SD, function(x) ifelse(is.na(x), "0/0", x)), .SDcols=STRAIN_ORDER]
@@ -108,6 +100,3 @@ err = system("bgzip -f caendr.pif.vcf && bcftools index caendr.pif.vcf.gz")
 if (err != 0) {
   Error("Something went wrong!")
 }
-
-# reset the libPath - not sure if necessary
-.libPaths(.libPaths()[-1])

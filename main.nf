@@ -26,7 +26,6 @@ params.out = "SV_results_${date}"
 params.help = null
 params.debug = false // T sets CeaNDR release code to 11111111 for debug NEED TO IMPLEMENT!
 params.bin_dir = "${workflow.projectDir}/bin" // this is different for gcp?
-params.rlib = "/projects/b1059/software/R_lib_3.6.0" // default to QUEST andersen lab 
 
 /*
 ~ ~ ~ > * LOG AND HELP MESSAGE SETUP
@@ -61,7 +60,6 @@ S V - N F    P I P E L I N E
     log.info "--ref         String           Full path to the .fa uncompressed reference file, default set for QUEST"
     log.info "--out         String           The output directory, default is SV_indel_results_<date>"
     log.info "--debug       boolean          Run the debug or not, default is FALSE"
-    log.info "--rlib        String           A path to an R v3.6.0 library with required R packages installed, default is /projects/b1059/software/R_lib_3.6.0"
     log.info ""
     log.info "Flags:"
     log.info "--help                                      Display this message"
@@ -83,14 +81,12 @@ workflow {
             .combine(Channel.from("${params.release}")) // get strain names from WI sheets
             .combine(Channel.from("${params.bam_dir}"))
             .combine(Channel.from("${params.ref}"))
-            .combine(Channel.from("${params.rlib}")) 
             //.view()
     } else {
         delly_in = Channel.fromPath("${params.bin_dir}/config_delly.R")
             .combine(Channel.from("${params.sp_sheet}")) // take strain names from sample sheet
             .combine(Channel.from("${params.bam_dir}"))
             .combine(Channel.from("${params.ref}"))
-            .combine(Channel.from("${params.rlib}"))
             //.view()
     }
 
@@ -128,7 +124,6 @@ workflow {
     ceandr_pif_ch = Channel.fromPath("${params.bin_dir}/bed_to_VCF.R")
         .combine(proc_genos.out.raw_ceandr_bed)
         .combine(Channel.fromPath("${params.ref}"))
-        .combine(Channel.from("${params.rlib}"))
 
     // run it
     output_caendr_pif(ceandr_pif_ch)
@@ -139,7 +134,7 @@ process config_delly {
     label "R"
 
     input:
-        tuple file(config_script), val(samples), val(bams_path), val(ref_path), path(rlib_path)
+        tuple file(config_script), val(samples), val(bams_path), val(ref_path)
 
     output:
         path "sample_file.txt", emit: sample_file
@@ -148,7 +143,7 @@ process config_delly {
 
     """
         # Use config script to setup delly run parameters
-        Rscript --vanilla ${config_script} ${samples} ${bams_path} ${ref_path} ${rlib_path}
+        Rscript --vanilla ${config_script} ${samples} ${bams_path} ${ref_path}
 
     """
 }
@@ -254,14 +249,14 @@ process output_caendr_pif {
     label "R"
         
     input:
-        tuple file(caendr_pif_script), file(bed), file(ref), path(rlib_path)
+        tuple file(caendr_pif_script), file(bed), file(ref)
 
     output:
         tuple file("caendr.pif.bed.gz"), file("caendr.pif.bed.gz.tbi"), file("caendr.pif.vcf.gz"), file("caendr.pif.vcf.gz.csi"), emit: ceandr_pif
 
     """
         # Use config script to setup delly run parameters
-        Rscript --vanilla ${caendr_pif_script} ${bed} ${ref} ${rlib_path}
+        Rscript --vanilla ${caendr_pif_script} ${bed} ${ref}
     """
 
 }

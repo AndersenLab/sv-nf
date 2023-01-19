@@ -16,3 +16,6 @@ dependencies:
   - r-magrittr
   - r-gsheet
   - r-stringr
+  - bioconductor-iranges
+  - bioconductor-genomicranges
+  - bioconductor-rsamtools
