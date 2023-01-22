@@ -41,7 +41,6 @@ Arguments:
 --ref         String           Full path to the .fa uncompressed reference file, default set for QUEST
 --out         String           The output directory, default is SV_indel_results_<date>
 --debug       boolean          Run the debug or not, default is FALSE
---rlib        String           A path to an R v3.6.0 library with required R packages installed, default is /projects/b1059/software/R_lib_3.6.0
 
 Flags:
 --help                                      Display this message
