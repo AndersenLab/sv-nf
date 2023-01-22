@@ -4,9 +4,10 @@
 args <- commandArgs(trailingOnly = TRUE)
 
 # Define arguments for testing
-# [1]: bed file from delly /projects/b1059/projects/Tim/sv-nf/temp_files/WI.DELLYpif.germline.bed
-# [2]: ref: /projects/b1059/data/c_elegans/genomes/PRJNA13758/WS283/c_elegans.PRJNA13758.WS283.genome.fa
-# args <- c("/projects/b1059/projects/Tim/sv-nf/temp_files/WI.DELLYpif.germline.bed", "/projects/b1059/data/c_elegans/genomes/PRJNA13758/WS283/c_elegans.PRJNA13758.WS283.genome.fa")
+# [1]: bed:
+# [2]: ref: 
+# [3]: species: briggsae
+args <- c("/projects/b1059/projects/Tim/sv-nf/temp_files/WI.DELLYpif.germline.bed", "/projects/b1059/data/c_elegans/genomes/PRJNA13758/WS283/c_elegans.PRJNA13758.WS283.genome.fa", "elegans")
 
 # load packages
 library(data.table)
@@ -25,8 +26,8 @@ df <- data.table::fread(args[1]) %>%
   dplyr::filter(GT == "1/1")
 
 # SAVE FORMATTED BED FILE
-data.table::fwrite(df, "caendr.pif.bed", col.names = FALSE, sep="\t")
-err = system("bgzip -f caendr.pif.bed && tabix -f caendr.pif.bed.gz")
+data.table::fwrite(df, file = paste0("caendr.pif.", args[3], ".bed"), col.names = FALSE, sep="\t")
+err = system(paste0("bgzip -f caendr.pif.", args[3], ".bed && tabix -f caendr.pif.", args[3], ".bed.gz"))
 if (err != 0) {
   Error("Something went wrong!")
 }
@@ -94,9 +95,9 @@ HEADER_LINES <- c("##fileformat=VCFv4.2",
                   '##INFO=<ID=END,Number=1,Type=Integer,Description="end position">',
                   '##INFO=<ID=TYPE,Number=1,Type=STRING,Description="type of variant">')
 
-writeLines(HEADER_LINES, file("caendr.pif.vcf"))
-data.table::fwrite(vcf, "caendr.pif.vcf", col.names=TRUE, append=TRUE, sep="\t")
-err = system("bgzip -f caendr.pif.vcf && bcftools index caendr.pif.vcf.gz")
+writeLines(HEADER_LINES, file(paste0("caendr.pif.", args[3], ".vcf")))
+data.table::fwrite(vcf, paste0("caendr.pif.", args[3], ".vcf"), col.names=TRUE, append=TRUE, sep="\t")
+err = system(paste0("bgzip -f caendr.pif.", args[3], ".vcf && bcftools index caendr.pif.", args[3], ".vcf.gz"))
 if (err != 0) {
   Error("Something went wrong!")
 }

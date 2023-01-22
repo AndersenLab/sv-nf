@@ -10,37 +10,45 @@ if( !nextflow.version.matches('>20.0') ) {
     exit 1
 }
 
-/*
-~ ~ ~ > * PARAMETERS SETUP
-*/
-
 // Variables
 date = new Date().format('yyyyMMdd')
 
-// Setup pipeline parameters
+// Parameters
 params.release = null
-params.sp_sheet = null
-params.bam_dir = "/projects/b1059/data/c_elegans/WI/alignments" // path to directory holding .bam files
-params.ref = "/projects/b1059/data/c_elegans/genomes/PRJNA13758/WS283/c_elegans.PRJNA13758.WS283.genome.fa" // WE should compress this at some point
-params.out = "SV_results_${date}"
 params.help = null
-params.debug = false // T sets CeaNDR release code to 11111111 for debug NEED TO IMPLEMENT!
-params.bin_dir = "${workflow.projectDir}/bin" // this is different for gcp?
+params.debug = null
+params.bin_dir = "${workflow.projectDir}/bin"
 
-/*
-~ ~ ~ > * LOG AND HELP MESSAGE SETUP
-*/
+// Parameter logic
+if(params.debug) {
+    println """
+        *** Using debug mode ***
+    """
+    params.species = "elegans"
+    params.bam_dir = "${workflow.projectDir}/debug" // path to directory holding .bam files
+    params.out = "SV_results_DEBUG_${params.species}_${date}"
+    params.ref = "${workflow.projectDir}/debug/debug_ref.fa.gz" 
+    params.sp_sheet = "${workflow.projectDir}/debug/sample_sheet.txt"
+} else {
+    params.species = null
+    params.bam_dir = "/projects/b1059/data/c_${params.species}/WI/alignments" // path to directory holding .bam files
+    params.out = "SV_results_${params.species}_${date}"
+    params.ref = null
+    params.sp_sheet = null 
+}
 
+// LOG AND HELP MESSAGE SETUP
 if (!params.help) {
 log.info '''
 S V - N F    P I P E L I N E
 ===============================================
 '''
     log.info ""
+    log.info "Species                  = ${params.species}"
+    log.info "Reference File           = ${params.ref}"
     log.info "CaeNDR Release           = ${params.release}"
     log.info "Sample Sheet             = ${params.sp_sheet}"
     log.info ".bam Directory           = ${params.bam_dir}"
-    log.info "Reference File           = ${params.ref}"
     log.info "Output Directory         = ${params.out}"
     log.info "Debug                    = ${params.debug}"
     log.info ""
@@ -51,19 +59,28 @@ S V - N F    P I P E L I N E
 '''
     log.info "Usage:"
     log.info "The typical command for running the pipeline is as follows:"
-    log.info "nextflow run main.nf --release <latest CaeNDR release>"
+    log.info "nextflow run main.nf --sepcies elegans --ref /projects/b1059/data/c_elegans/genomes/PRJNA13758/WS283/c_elegans.PRJNA13758.WS283.genome.fa --release <latest CaeNDR release>"
+    log.info "To debug use:"
+    log.info "nextflow run main.nf --debug"
     log.info ""
-    log.info "Arguments:"
+    log.info "Required Arguments:"
+    log.info "--species     String           One of three, elegans, briggsae, tropicalis"
+    log.info "--ref         String           Full path to the .fa uncompressed reference file, default set to null"
     log.info "--release     String           The 8-digit date code for CaeNDR release, e.g 20220216"
+    log.info "OR"
     log.info "--sp_sheet    String           A path to the sample_sheet.txt file for calling INDELs instead of release"
-    log.info "--bam_dir     String           The path to the .bam directory, default set for QUEST"
-    log.info "--ref         String           Full path to the .fa uncompressed reference file, default set for QUEST"
+    log.info ""
+    log.info "Optional Arguments:"
+    log.info "--bam_dir     String           The path to the .bam directory, default set for QUEST: /projects/b1059/data/c_<species>/WI/alignments"
     log.info "--out         String           The output directory, default is SV_indel_results_<date>"
-    log.info "--debug       boolean          Run the debug or not, default is FALSE"
+    log.info "--debug"
     log.info ""
     log.info "Flags:"
-    log.info "--help                                      Display this message"
+    log.info "--help                          Display this message"
     log.info ""
+    log.info "Notes:"
+    log.info "The briggsae reference path on QUEST is /projects/b1059/data/c_briggsae/genomes/QX1410_nanopore/Feb2020/c_briggsae.QX1410_nanopore.Feb2020.genome.fa.gz"
+    log.info "The tropicalis reference path on QUEST is /projects/b1059/data/c_tropicalis/genomes/NIC58_nanopore/June2021/c_tropicalis.NIC58_nanopore.June2021.genome.fa.gz"
     log.info "--------------------------------------------------------"
         exit 1
     }
@@ -78,12 +95,14 @@ workflow {
     if(params.release){
 
         delly_in = Channel.fromPath("${params.bin_dir}/config_delly.R")
+            .combine(Channel.from("${params.species}")) // get strain names from WI sheets
             .combine(Channel.from("${params.release}")) // get strain names from WI sheets
             .combine(Channel.from("${params.bam_dir}"))
             .combine(Channel.from("${params.ref}"))
             //.view()
     } else {
         delly_in = Channel.fromPath("${params.bin_dir}/config_delly.R")
+            .combine(Channel.from("${params.species}")) // get strain names from WI sheets
             .combine(Channel.from("${params.sp_sheet}")) // take strain names from sample sheet
             .combine(Channel.from("${params.bam_dir}"))
             .combine(Channel.from("${params.ref}"))
@@ -124,6 +143,7 @@ workflow {
     ceandr_pif_ch = Channel.fromPath("${params.bin_dir}/bed_to_VCF.R")
         .combine(proc_genos.out.raw_ceandr_bed)
         .combine(Channel.fromPath("${params.ref}"))
+        .combine(Channel.from("${params.species}"))
 
     // run it
     output_caendr_pif(ceandr_pif_ch)
@@ -134,7 +154,7 @@ process config_delly {
     label "R"
 
     input:
-        tuple file(config_script), val(samples), val(bams_path), val(ref_path)
+        tuple file(config_script), val(species), val(samples), val(bams_path), val(ref_path)
 
     output:
         path "sample_file.txt", emit: sample_file
@@ -143,7 +163,7 @@ process config_delly {
 
     """
         # Use config script to setup delly run parameters
-        Rscript --vanilla ${config_script} ${samples} ${bams_path} ${ref_path}
+        Rscript --vanilla ${config_script} ${species} ${samples} ${bams_path} ${ref_path}
 
     """
 }
@@ -168,7 +188,7 @@ process delly_pif {
 
 process merge_delly_pif {
     
-    label "dell_big"
+    label "dell"
 
     input:
         path("*")
@@ -249,14 +269,15 @@ process output_caendr_pif {
     label "R"
         
     input:
-        tuple file(caendr_pif_script), file(bed), file(ref)
+        tuple file(caendr_pif_script), file(bed), file(ref), val(species)
 
     output:
-        tuple file("caendr.pif.bed.gz"), file("caendr.pif.bed.gz.tbi"), file("caendr.pif.vcf.gz"), file("caendr.pif.vcf.gz.csi"), emit: ceandr_pif
+        tuple file("caendr.pif.${species}.bed.gz"), file("caendr.pif.${species}.bed.gz.tbi"), file("caendr.pif.${species}.vcf.gz"), file("caendr.pif.${species}.vcf.gz.csi"), emit: ceandr_pif
+        
 
     """
         # Use config script to setup delly run parameters
-        Rscript --vanilla ${caendr_pif_script} ${bed} ${ref}
+        Rscript --vanilla ${caendr_pif_script} ${bed} ${ref} ${species}
     """
 
 }
