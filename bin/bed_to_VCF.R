@@ -7,7 +7,7 @@ args <- commandArgs(trailingOnly = TRUE)
 # [1]: bed:
 # [2]: ref: 
 # [3]: species: briggsae
-args <- c("/projects/b1059/projects/Tim/sv-nf/temp_files/WI.DELLYpif.germline.bed", "/projects/b1059/data/c_elegans/genomes/PRJNA13758/WS283/c_elegans.PRJNA13758.WS283.genome.fa", "elegans")
+# args <- c("/projects/b1059/projects/Tim/sv-nf/temp_files/WI.DELLYpif.germline.bed", "/projects/b1059/data/c_elegans/genomes/PRJNA13758/WS283/c_elegans.PRJNA13758.WS283.genome.fa", "elegans")
 
 # load packages
 library(data.table)
