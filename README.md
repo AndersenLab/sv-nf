@@ -31,20 +31,20 @@ nextflow run main.nf --sepcies elegans --ref /projects/b1059/data/c_elegans/geno
 S V - N F    P I P E L I N E
 ===============================================
 Usage:
-The typical command for running the pipeline is as follows:
+The typical usage is as follows:
 nextflow run main.nf --sepcies elegans --ref /projects/b1059/data/c_elegans/genomes/PRJNA13758/WS283/c_elegans.PRJNA13758.WS283.genome.fa --release <latest CaeNDR release>
 To debug use:
 nextflow run main.nf --debug
 
 Required Arguments:
 --species     String           One of three, elegans, briggsae, tropicalis
---ref         String           Full path to the .fa uncompressed reference file, default set to null
---release     String           The 8-digit date code for CaeNDR release, e.g 20220216. Required if --sp_sheet not specified
+--ref         String           Full path to the .fa uncompressed reference file, default is null
+--release     String           The 8-digit CaeNDR release date, e.g 20220216, required when --sp_sheet not specified
 OR
---sp_sheet    String           A path to the sample_sheet.txt file for calling INDELs instead of release. Required if --release not specified
+--sp_sheet    String           A path to the sample_sheet.txt file used to call INDELs instead of release. Required when --release not specified
 
 Optional Arguments:
---bam_dir     String           The path to the .bam directory, default set for QUEST: /projects/b1059/data/c_<species>/WI/alignments
+--bam_dir     String           The path to the .bam directory, default is specific to QUEST: /projects/b1059/data/c_<species>/WI/alignments
 --out         String           The output directory, default is SV_indel_results_<date>
 --debug
 
