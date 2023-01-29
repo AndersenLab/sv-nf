@@ -59,7 +59,7 @@ S V - N F    P I P E L I N E
 '''
     log.info "Usage:"
     log.info "The typical command for running the pipeline is as follows:"
-    log.info "nextflow run main.nf --sepcies elegans --ref /projects/b1059/data/c_elegans/genomes/PRJNA13758/WS283/c_elegans.PRJNA13758.WS283.genome.fa --release <latest CaeNDR release>"
+    log.info "nextflow run main.nf --species elegans --ref /projects/b1059/data/c_elegans/genomes/PRJNA13758/WS283/c_elegans.PRJNA13758.WS283.genome.fa --release <latest CaeNDR release>"
     log.info "To debug use:"
     log.info "nextflow run main.nf --debug"
     log.info ""
@@ -231,7 +231,7 @@ process proc_genos {
 
     output:
         tuple file("WI.DELLYpif.germline-filter.vcf.gz"), file("WI.DELLYpif.germline-filter.vcf.gz.tbi"), emit: delly_germline_filtered
-        tuple file("WI.DELLYpif.germline.bed"), emit: raw_ceandr_bed
+        tuple file("WI.DELLYpif.raw.bed"), emit: raw_ceandr_bed
         tuple file("WI.DELLYpif.raw.vcf.gz"), file("WI.DELLYpif.raw.vcf.gz.tbi"), file("WI.DELLYpif.raw.stats.txt"), file("WI.DELLYpif.germline-filter.stats.txt")
 
     script:
@@ -253,9 +253,15 @@ process proc_genos {
             bcftools view --samples-file=sample_names.txt -Oz -o WI.DELLYpif.germline-filter.vcf.gz WI.DELLYpif.germline-filter.bcf
             tabix -p vcf -f WI.DELLYpif.germline-filter.vcf.gz
 
-            bcftools query WI.DELLYpif.germline-filter.vcf.gz -f '[%CHROM\\t%POS\\t%INFO/END\\t%INFO/SVTYPE\\t%SAMPLE\\t%GT\\n]' |\\
-            awk -F"|" '{print \$1, \$2, \$3, \$4, \$5}' OFS="\\t" > WI.DELLYpif.germline.bed
-
+            #bcftools query WI.DELLYpif.germline-filter.vcf.gz -f '[%CHROM\\t%POS\\t%INFO/END\\t%INFO/SVTYPE\\t%SAMPLE\\t%GT\\n]' |\\
+            #awk -F"|" '{print \$1, \$2, \$3, \$4, \$5}' OFS="\\t" > WI.DELLYpif.germline.bed
+            
+            ## I switched this process to send the raw SVs to the output_caendr_pif process, but this process still applies the delly filter command above
+            ## THIS CAN BE MADE MORE EFFICIENT WHEN WE SETTLE ON WHICH FILE TO USE
+            
+            bcftools query WI.DELLYpif.raw.vcf.gz -f '[%CHROM\\t%POS\\t%INFO/END\\t%INFO/SVTYPE\\t%SAMPLE\\t%GT\\n]' |\\
+            awk -F"|" '{print \$1, \$2, \$3, \$4, \$5}' OFS="\\t" > WI.DELLYpif.raw.bed
+            
             bcftools stats --verbose WI.DELLYpif.raw.vcf.gz > WI.DELLYpif.raw.stats.txt
             bcftools stats --verbose WI.DELLYpif.germline-filter.vcf.gz > WI.DELLYpif.germline-filter.stats.txt     
         """
