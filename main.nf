@@ -278,7 +278,7 @@ process output_caendr_pif {
         tuple file(caendr_pif_script), file(bed), file(ref), val(species)
 
     output:
-        tuple file("caendr.pif.${species}.bed.gz"), file("caendr.pif.${species}.bed.gz.tbi"), file("caendr.pif.${species}.vcf.gz"), file("caendr.pif.${species}.vcf.gz.csi"), emit: ceandr_pif
+        tuple file("caendr.c_${species}_pif.bed.gz"), file("caendr.c_${species}_pif.bed.gz.tbi"), file("caendr.c_${species}_pif.vcf.gz"), file("caendr.c_${species}_pif.vcf.gz.csi"), emit: ceandr_pif
         
 
     """
