@@ -146,17 +146,24 @@ workflow {
     genotype_sites(geno_sites_ch)
 
     // send output to proccess delly channel
-    proc_genos_ch = genotype_sites.out.delly_genos.collect() | proc_genos
-        //.view()
-
-    // setup ceandr_pif script and inputs as a channel
-    ceandr_pif_ch = Channel.fromPath("${params.bin_dir}/bed_to_VCF.R")
+    if ( params.PIF==null | params.PIF==false ){
+        proc_genos_ch = genotype_sites.out.delly_genos.collect() | proc_genos_all
+    
+    } else {
+    
+        proc_genos_ch = genotype_sites.out.delly_genos.collect() | proc_genos
+            // setup ceandr_pif script and inputs as a channel
+        ceandr_pif_ch = Channel.fromPath("${params.bin_dir}/bed_to_VCF.R")
         .combine(proc_genos.out.raw_ceandr_bed)
         .combine(Channel.fromPath("${params.ref}"))
         .combine(Channel.from("${params.species}"))
 
-    // run it
-    output_caendr_pif(ceandr_pif_ch)
+        // run it
+        output_caendr_pif(ceandr_pif_ch)
+    }
+        //.view()
+
+
 }
 
 process config_delly {
@@ -290,6 +297,54 @@ process proc_genos {
             
             bcftools stats --verbose WI.DELLYpif.raw.vcf.gz > WI.DELLYpif.raw.stats.txt
             bcftools stats --verbose WI.DELLYpif.germline-filter.vcf.gz > WI.DELLYpif.germline-filter.stats.txt     
+        """
+
+}
+
+process proc_genos_all {
+
+    label "dell_big"
+        
+    publishDir "${params.out}/variation", mode: 'copy'
+
+    input:
+        path("*")
+
+    output:
+        tuple file("WI.DELLY.germline-filter.vcf.gz"), file("WI.DELLY.germline-filter.vcf.gz.tbi"), emit: delly_germline_filtered
+      //  tuple file("WI.DELLY.raw.bed"), emit: raw_ceandr_bed
+        tuple file("WI.DELLY.raw.vcf.gz"), file("WI.DELLY.raw.vcf.gz.tbi"), file("WI.DELLY.raw.stats.txt"), file("WI.DELLY.germline-filter.stats.txt")
+
+    script:
+        """
+            ls *.bcf > bcf_list.txt
+
+            bcftools merge -m id -Ob -o WI.DELLY.raw.bcf -l bcf_list.txt
+            bcftools index -f WI.DELLY.raw.bcf
+
+            bcftools query -l WI.DELLY.raw.bcf | sort > sample_names.txt
+
+            bcftools view --samples-file=sample_names.txt -Oz -o WI.DELLY.raw.vcf.gz WI.DELLY.raw.bcf
+            tabix -p vcf -f WI.DELLY.raw.vcf.gz
+
+            delly filter -f germline WI.DELLY.raw.bcf -o WI.DELLY.germline-filter.bcf
+            bcftools view -Oz -o WI.DELLY.germline-filter.vcf.gz WI.DELLY.germline-filter.bcf
+            tabix -p vcf -f WI.DELLY.germline-filter.vcf.gz
+
+            bcftools view --samples-file=sample_names.txt -Oz -o WI.DELLY.germline-filter.vcf.gz WI.DELLY.germline-filter.bcf
+            tabix -p vcf -f WI.DELLY.germline-filter.vcf.gz
+
+            #bcftools query WI.DELLY.germline-filter.vcf.gz -f '[%CHROM\\t%POS\\t%INFO/END\\t%INFO/SVTYPE\\t%SAMPLE\\t%GT\\n]' |\\
+            #awk -F"|" '{print \$1, \$2, \$3, \$4, \$5}' OFS="\\t" > WI.DELLY.germline.bed
+            
+            ## I switched this process to send the raw SVs to the output_caendr_pif process, but this process still applies the delly filter command above
+            ## THIS CAN BE MADE MORE EFFICIENT WHEN WE SETTLE ON WHICH FILE TO USE
+            
+            #bcftools query WI.DELLY.raw.vcf.gz -f '[%CHROM\\t%POS\\t%INFO/END\\t%INFO/SVTYPE\\t%SAMPLE\\t%GT\\n]' |\\
+            #awk -F"|" '{print \$1, \$2, \$3, \$4, \$5}' OFS="\\t" > WI.DELLY.raw.bed
+            
+            bcftools stats --verbose WI.DELLY.raw.vcf.gz > WI.DELLY.raw.stats.txt
+            bcftools stats --verbose WI.DELLY.germline-filter.vcf.gz > WI.DELLY.germline-filter.stats.txt     
         """
 
 }
