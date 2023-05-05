@@ -69,6 +69,7 @@ S V - N F    P I P E L I N E
     log.info "--release     String           The 8-digit date code for CaeNDR release, e.g 20220216. Required if --sp_sheet not specified"
     log.info "OR"
     log.info "--sp_sheet    String           A path to the sample_sheet.txt file for calling INDELs instead of release. Required if --release not specified"
+    log.info "--PIF         BOOL            To perfrom pairwise-indel finder (PIF) analysis, default is false"
     log.info ""
     log.info "Optional Arguments:"
     log.info "--bam_dir     String           The path to the .bam directory, default set for QUEST: /projects/b1059/data/c_<species>/WI/alignments"
@@ -88,6 +89,7 @@ S V - N F    P I P E L I N E
 /*
 ~ ~ ~ > * WORKFLOW
 */
+if ( params.PIF==null ) println "Using DELLY all mode" 
 
 workflow {
 
@@ -109,6 +111,7 @@ workflow {
             //.view()
     }
 
+
     // make the delly run parameters
     config_delly(delly_in)
 
@@ -119,10 +122,17 @@ workflow {
             //.view()
 
     // run delly for pairwise-indel finder (pif)
-    delly_pif(delly_pif_ch)
+    
+    if ( params.PIF==null | params.PIF==false ){
+        delly_all(delly_pif_ch)
+        merge_delly_pif_ch = delly_all.out.collect()
+
+    } else {
+        delly_pif(delly_pif_ch)
+        merge_delly_pif_ch = delly_pif.out.collect()
+    }
 
     // send output to merge
-    merge_delly_pif_ch = delly_pif.out.collect()
         //.view()
     
     // run merge
@@ -183,6 +193,22 @@ process delly_pif {
         delly call -t DEL ${bam} -g ${ref} -o ${strain}_del.bcf
         delly call -t INS ${bam} -g ${ref} -o ${strain}_ins.bcf
         
+    """
+}
+
+process delly_all {
+    
+    label "dell_big"
+
+    input:
+        tuple val(strain), file(bam), file(index), file(ref)
+
+    output:
+        file "*.bcf"
+
+
+    """
+        delly call ${bam} -g ${ref} -o ${strain}_.bcf
     """
 }
 
