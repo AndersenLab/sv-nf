@@ -124,23 +124,32 @@ workflow {
     // run delly for pairwise-indel finder (pif)
     
     if ( params.PIF==null | params.PIF==false ){
+        
+        // run delly calling all SV types
         delly_all(delly_pif_ch)
-        merge_delly_pif_ch = delly_all.out.collect()
+        // collect output files 
+        merge_delly_all_ch = delly_all.out.collect()
+        
+        // merge delly output files
+        merge_delly_all(merge_delly_all_ch)
+
+        // Collect outputs for genotype
+        geno_sites_ch = delly_pif_ch.combine(merge_delly_all.out)
+
 
     } else {
+        // run delly for Pairwise-indel finder (PIF)
         delly_pif(delly_pif_ch)
+        // collect output files
         merge_delly_pif_ch = delly_pif.out.collect()
+
+        // merge delly output files
+        merge_delly_pif(merge_delly_pif_ch)
+
+        // Collect outputs for genotype
+        geno_sites_ch = delly_pif_ch.combine(merge_delly_pif.out)
+
     }
-
-    // send output to merge
-        //.view()
-    
-    // run merge
-    merge_delly_pif(merge_delly_pif_ch)
-
-    // send output to be genotyped
-    geno_sites_ch = delly_pif_ch.combine(merge_delly_pif.out)
-        //.view()
 
     // run genotype_sites
     genotype_sites(geno_sites_ch)
@@ -232,6 +241,23 @@ process merge_delly_pif {
     """
         vcf_list=`echo *.bcf`
         delly merge \${vcf_list} --minsize 50 --maxsize 500 -b 1000 -r 0.8000012 -o WI.merge.sites.bcf
+    """
+
+}
+
+process merge_delly_all {
+    
+    label "dell"
+
+    input:
+        path("*")
+
+    output:
+        file "*.bcf" 
+
+    """
+        vcf_list=`echo *.bcf`
+        delly merge \${vcf_list} -b 1000 -r 0.8000012 -o WI.merge.sites.bcf
     """
 
 }
