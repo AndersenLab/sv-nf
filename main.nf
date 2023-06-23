@@ -214,7 +214,7 @@ process delly_pif {
 
 process delly_all {
     
-    label "dell_big"
+    label "dell"
 
     input:
         tuple val(strain), file(bam), file(index), file(ref)
@@ -247,7 +247,7 @@ process merge_delly_pif {
 
 process merge_delly_all {
     
-    label "dell"
+    label "merge"
 
     input:
         path("*")
@@ -264,7 +264,6 @@ process merge_delly_all {
 
 process genotype_sites {
 
-    label "dell_big"
         
     input:
         tuple val(isotype), file(bam), file(index), file(ref), file(merged_bcf)
@@ -329,7 +328,6 @@ process proc_genos {
 
 process proc_genos_all {
 
-    label "dell_big"
         
     publishDir "${params.out}/variation", mode: 'copy'
 
