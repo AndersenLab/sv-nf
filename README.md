@@ -9,7 +9,7 @@
 
 ## QUEST usage
 
-The current version of `sv-nf v0.1.0` is limited to building the `.bed` and `.vcf` files required for the CaeNDR pairwise-indel finder tool. Follow the usage below to generate the files. Note, the R libraries required to run this version of the pipeline are set by default to `/projects/b1059/software/R_lib_3.6.0`. This solution is known to be unstable and will be updated in the next version.
+The current version of `sv-nf v0.1.0` is limited to building the `.bed` and `.vcf` files required for the CaeNDR pairwise-indel finder tool. Follow the usage below to generate the files. 
 
 ```
 # clone the repo
